@@ -1,0 +1,106 @@
+function rasporedi(M)
+  mat=copy(M)
+
+  #provjerimo je li problem balansirani, ukoliko nije dodamo redove/kolone
+  m=size(mat,1)
+  n=size(mat,2)
+
+  if(m!=n)
+    if(m>n)
+      mat=hcat(mat,zeros(m,abs(m-n)))
+    elseif(n>m)
+      mat=vcat(mat,zeros(abs(m-n),n))
+    end
+  end
+
+  m=size(mat,1)
+  n=size(mat,2)
+
+
+kopija=copy(mat)
+
+  #redukcija po redovima
+  min_u_redovima=minimum.(eachrow(mat));
+  for i in 1:size(M,1)
+    for j in 1:size(M,2)
+      mat[i,j]=mat[i,j]-min_u_redovima[i];
+    end
+  end
+
+
+  #redukcija po kolonama
+  min_u_kolonama=minimum.(eachcol(mat));
+  for i in 1:size(M,1)
+    for j in 1:size(M,2)
+      mat[j,i]=mat[j,i]-min_u_kolonama[i];
+    end
+  end
+
+raspored=copy(mat)
+
+
+#sve dok ima nula
+while true
+
+if(count(x->(x==0),raspored)==0)
+  break
+end
+
+#pregled po redovima
+  for i in 1:m 
+      if(count(x->(x==0),raspored,dims=2)[i]==1)
+        for j in 1:n
+          if(raspored[i,j]==0) 
+            raspored[i,j]=-1 #nezavisna nula
+              for k in 1:m #brišemo zavisne nule u koloni
+                if(raspored[k,j]==0)
+                  raspored[k,j]=-2
+                end 
+              end
+          end
+        end
+
+      end
+   end
+
+
+#pregled po kolonama
+ for j in 1:n 
+      if(count(x->(x==0),raspored,dims=1)[j]==1)
+        for i in 1:m
+          if(raspored[i,j]==0) 
+            raspored[i,j]=-1 #nezavisna nula
+              for k in 1:n #brišemo zavisne nule u redu
+                if(raspored[i,k]==0)
+                  raspored[i,k]=-2
+                end 
+              end
+          end
+        end
+
+      end
+   end
+end
+
+
+for i in 1:m 
+  for j in 1:n 
+    if(raspored[i,j]==-1) raspored[i,j]=1
+    else
+    raspored[i,j]=0
+    end
+  end
+end
+
+z=0
+for i in 1:m 
+  for j in 1:n 
+    if(raspored[i,j]==1)
+      z=z+kopija[i,j]
+    end
+  end
+end
+
+return raspored,z
+
+end

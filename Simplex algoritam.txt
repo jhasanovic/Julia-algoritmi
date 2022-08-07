@@ -1,0 +1,343 @@
+function rijesi_simplex(goal,A,b,c,csigns,vsigns)
+
+c_original_size=size(c,1);
+
+for i in 1:size(b,1)
+  if(b[i]<0)
+    b[i]=-b[i];
+    csigns[i]=-csigns[i];
+    for j in 1:size(A,2)
+      A[i,j]=-A[i,j];
+    end
+  end
+end
+
+for i in 1:size(vsigns,1)
+  if(vsigns[i]==-1)
+    c[i]=-c[i];
+    for j in 1:size(A,2)
+      A[i,j]=-A[i,j];
+    end
+  end
+end
+
+#dodavanje dopunskih varijabli
+brojac_dopunske=0;
+brojac_dopunske_baza=0;
+base=[];
+
+for i in 1:size(csigns,1)
+  if(csigns[i]==1 || csigns[i]==-1)
+    brojac_dopunske=brojac_dopunske+1;
+  end
+  if(csigns[i]==-1)
+    brojac_dopunske_baza=brojac_dopunske_baza+1;
+  end
+end
+
+n=1;
+n2=1;
+for i in 1:size(csigns,1)
+  if(csigns[i]==0)
+  push!(base,c_original_size+brojac_dopunske+n)
+  n=n+1;
+  elseif(csigns[i]==1)
+  push!(base,c_original_size+brojac_dopunske+n)
+  n=n+1;
+  n2=n2+1;
+  elseif(csigns[i]==-1)
+  push!(base,c_original_size+n2)
+  n2=n2+1;
+  end
+end
+
+
+jedinicna=zeros(size(b,1),brojac_dopunske)
+
+j=1;
+for i in 1:size(jedinicna,1)
+   if(csigns[i]==-1)
+     jedinicna[i,j]=1;
+     j=j+1;
+   elseif(csigns[i]==1)
+     jedinicna[i,j]=-1;
+     j=j+1;
+   end
+end
+
+A=hcat(A,jedinicna)
+
+#dodavanje vjestackih varijabli
+
+brojac_vjestacke=0;
+for i in 1:size(csigns,1)
+  if(csigns[i]==1 || csigns[i]==0)
+    brojac_vjestacke=brojac_vjestacke+1;
+  end
+end
+
+vjestacke=zeros(size(b,1),brojac_vjestacke);
+
+j=1;
+for i in 1:size(vjestacke,1)
+  if(csigns[i]==0 || csigns[i]==1)
+    vjestacke[i,j]=1;
+    j=j+1;
+  end
+end
+
+v=[];
+
+A=hcat(A,vjestacke)
+
+c=[0;c]
+c=[c;zeros(brojac_dopunske+brojac_vjestacke)]
+
+#formiranje simplex tabele ST
+ST=zeros(size(b,1)+1,size(c,1))
+
+if(brojac_vjestacke==0)
+ST=zeros(size(b,1)+1,size(c,1))
+
+for i in 1:size(ST,1) 
+  for j in 1:size(ST,2)
+    if (j==1 && i!=size(ST,1))
+      ST[i,j]=b[i]
+      elseif (i!=size(ST,1))
+      ST[i,j]=A[i,j-1]
+      elseif (i==size(ST,1))
+      ST[i,j]=c[j]
+    end
+  end
+end
+#kraj slucaja kada nema vjestackih varijabli
+
+elseif(brojac_vjestacke>0)
+
+v1=size(ST,2)-brojac_vjestacke-1;
+for i in 1:size(vjestacke,2)
+  push!(v,v1+i);
+end
+
+ST=zeros(size(b,1)+2,size(c,1));
+
+for i in 1:size(ST,1) 
+  for j in 1:size(ST,2)
+    if (j==1 && i!=size(ST,1) && i!=size(ST,1)-1)
+      ST[i,j]=b[i]
+      elseif (i!=size(ST,1) && i!=size(ST,1)-1)
+      ST[i,j]=A[i,j-1]
+      elseif(i==size(ST,1)-1)
+      ST[i,j]=0;
+      elseif (i==size(ST,1) && goal=="max")
+      ST[i,j]=c[j]
+      elseif (i==size(ST,1) && goal=="min")
+      ST[i,j]=-c[j]
+    end
+  end
+end
+
+matrica_zbir=copy(ST)
+
+
+for i in 1:size(ST,1) 
+  for j in 1:size(ST,2)
+    if (i!=size(ST,1) && i!=size(ST,1)-1 && length(findall( x -> x == base[i], v)) == 0)
+      matrica_zbir[i,j]=0;
+    elseif (i==size(ST,1))
+      matrica_zbir[i,j]=0;
+    end
+  end
+end
+
+zbir_po_kolonama=sum(matrica_zbir,dims=1)
+
+for i in 1+c_original_size+brojac_dopunske+1:size(ST,2)
+  zbir_po_kolonama[i]=0;
+end
+
+
+for i in 1:length(zbir_po_kolonama)
+  ST[size(ST,1)-1,i]=zbir_po_kolonama[i];
+end
+ 
+end
+#kraj slucaja kada ima vjestackih varijabli
+
+
+temp=copy(ST)
+
+max_c=0.0
+v_izbacene=false
+while((brojac_vjestacke==0 && max_c>=0) || (brojac_vjestacke>0 && v_izbacene==false))
+
+
+
+#provjeriti da li u bazi ima vjestackih
+v_izbacene=true;
+for i in 1:size(v,1)
+  if(length(findall(x -> x == v[i], base)) > 0)
+    v_izbacene=false;
+    break;
+  end
+end
+
+#trazenje kolone varijable koja ulazi u bazu
+q=2
+max_c=0.0
+
+for i in 1:size(ST,2)-brojac_vjestacke #vjestacke ne uzimamo u obzir
+  if(ST[size(ST,1),i]>max_c && i!=1)
+    max_c=ST[size(ST,1),i]
+    q=i
+  end
+end
+
+
+if(v_izbacene==false && max_c<=0)
+  #nema vise nenegativnih, a nisu izbacene sve vjestacke varijable iz baze
+  zadnji_red=[]
+  for i in 1:size(ST,2)
+    push!(zadnji_red,ST[size(ST,1),i])
+  end
+
+  min2=minimum(zadnji_red)
+
+   for i in 1:size(ST,2)-brojac_vjestacke #vjestacke ne uzimamo u obzir
+     if(ST[size(ST,1),i]>min2 && i!=1 && ST[size(ST,1),i]!=0)
+        min2=ST[size(ST,1),i]
+        max_c=min2
+        q=i
+    end
+   end
+end
+
+if((brojac_vjestacke==0 && max_c<=0) || (brojac_vjestacke>0 && v_izbacene==true)) #algoritam terminira
+
+#provjera da li je rjesenje jedinstveno
+
+for i in 1:size(ST,2)-brojac_vjestacke
+    if(i!=1 && ST[size(ST,1),i]==0 && length(findall(x -> x == i-1, base)) == 0)
+      println("Rješenje nije jedinstveno.")
+      break
+    end
+end
+
+beskonacno=1
+for i in 1:size(base,1)
+  if(ST[i,q]>0)
+    beskonacno=0
+  break
+  end
+end
+
+if(beskonacno==1)
+  return "Rješenje je u beskonačnosti."
+end
+
+z=ST[size(ST,1),1]
+if(z<0)
+  z=-z
+elseif(z==0)
+  z=0
+end
+y=zeros(size(ST,2)-1)
+for i in 1:size(base,1)
+   y[convert(Int,base[i])]=ST[i,1]
+end
+
+x=zeros(size(ST,2)-1-brojac_dopunske-brojac_vjestacke)
+for i in 1:size(x,1)
+   x[i]=y[i];
+end
+
+degenerirano=false;
+for i in 1:size(x,1)
+   if(x[i]==0)
+   degenerirano=true;
+   break;
+   end
+end
+
+for i in 1:size(x,1)
+   if(x[i]<0)
+      x[i]=-x[i];
+   end
+end
+
+if(degenerirano==true) 
+println("Rješenje je degenerirano.")
+end
+
+return z,x
+end
+
+#trazenje reda p varijable koja izlazi iz baze
+p=0
+t_max=0.0
+nadjeno_p=0
+
+beskonacno=1
+for i in 1:size(base,1)
+  if(ST[i,q]>0)
+    beskonacno=0
+  break
+  end
+end
+
+if(beskonacno==1)
+  return "Rješenje je u beskonačnosti"
+end
+
+for i in 1:size(base,1)
+  if(ST[i,1]/ST[i,q]>=t_max)
+  
+    t_max=ST[i,1]/ST[i,q]
+    p=i
+    nadjeno_p=1
+  end
+end
+
+
+t_min=0.0
+
+
+for i in 1:size(base,1)
+  if(ST[i,1]/ST[i,q]<=t_max && ST[i,1]/ST[i,q]>=0)
+     t_min=ST[i,1]/ST[i,q]
+     t_max=t_min
+     p=i
+  end
+end
+
+#pivot element je ST[p,q]
+pivot=ST[p,q]
+
+#promjena baza
+base[p]=q-1
+
+temp=copy(ST)
+
+#transformacija tabele
+
+for j in 1:size(ST,2)
+  ST[p,j]=ST[p,j]/pivot
+end
+
+pivot=ST[p,q]
+
+temp=copy(ST)
+
+for i in 1:size(ST,1)
+  for j in 1:size(ST,2)
+    if(i!=p)
+      ST[i,j]=temp[i,j]-(temp[i,q]*temp[p,j])/pivot
+    end
+  end
+end
+
+temp=copy(ST)
+
+end
+
+end
